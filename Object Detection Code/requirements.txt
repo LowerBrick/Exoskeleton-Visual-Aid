@@ -1,0 +1,10 @@
+# All dependencies are installed via apt, not pip.
+# Run ./install.sh to install everything automatically.
+#
+# For reference, the packages installed are:
+#
+# imx500-all          - IMX500 AI camera firmware and models
+# python3-opencv      - Computer vision library
+# python3-munkres     - Hungarian algorithm (used by picamera2 internals)
+# python3-picamera2   - Raspberry Pi camera interface
+# espeak-ng           - Text-to-speech engine
