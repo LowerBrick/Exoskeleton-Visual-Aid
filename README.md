@@ -1,93 +1,129 @@
-# Visual Aid Exoskeleton
+# Eye Gaze Detector
 
-A wearable computer vision system built on the Raspberry Pi 5 and Raspberry Pi AI Camera (IMX500). It detects objects in real time and announces them aloud using text-to-speech — designed as an assistive visual aid.
-
----
-
-## Hardware Requirements
-
-- Raspberry Pi 5
-- Raspberry Pi AI Camera (IMX500)
-- USB-C PD 5V/5A power supply
-- SanDisk Extreme microSD card (or equivalent)
-
-> **Note:** This project will not run on any other hardware. The IMX500 AI camera is required for on-device inference.
+Real-time eye gaze direction detector for Raspberry Pi 5. A camera is fixed close to one eye and detects whether the subject is looking **LEFT**, **CENTER**, or **RIGHT**. Output is printed to the terminal with a live preview window.
 
 ---
 
-## How It Works
+## Hardware
 
-The IMX500 camera module handles image sensing and on-chip AI inference, sending an output tensor to the Pi 5. The Pi then parses that tensor to extract detected objects, draws bounding boxes on the preview, and speaks detected object names aloud via `espeak-ng`.
+| | |
+|---|---|
+| Device | Raspberry Pi 5 |
+| OS | Raspberry Pi OS Trixie (Debian 13) |
+| Camera | IMX296 global shutter sensor |
+| Resolution | 1456 x 1088 @ 60.38 fps |
+| Interface | CSI-2 |
 
----
-
-## Setup
-
-### 1. Clone the repo
-```bash
-git clone https://github.com/yourusername/visual-aid-exoskeleton.git
-cd visual-aid-exoskeleton
-```
-
-### 2. Run the installer
-```bash
-chmod +x install.sh
-./install.sh
-```
-
-This installs all required system packages. The `imx500-all` step may take a few minutes as it downloads camera firmware and model files.
-
----
-
-## Running
-
-```bash
-python3 src/detection.py
-```
-
-### Optional flags
-
-| Flag | Default | Description |
-|------|---------|-------------|
-| `--threshold` | `0.55` | Minimum confidence to register a detection |
-| `--iou` | `0.65` | IOU threshold for overlapping boxes |
-| `--max-detections` | `10` | Max objects detected per frame |
-| `--fps` | auto | Frames per second |
-| `--labels` | COCO-80 | Path to a custom labels file |
-
----
-
-## Object Detection Model
-
-By default the system uses the COCO-80 dataset, which covers 80 common everyday objects. This is the only publicly available dataset in the `.rpk` format required by the IMX500 chip.
-
-Custom dataset training is in progress to expand detection coverage.
-
----
-
-## Project Structure
-
-```
-visual-aid-exoskeleton/
-├── README.md
-├── install.sh
-├── requirements.txt
-├── src/
-│   └── detection.py
-└── assets/
-    └── coco_labels.txt
-```
-
----
-
-## Planned Features
-
-- Custom trained dataset for broader object detection
-- Eye tracking via second camera input and servo control (left/right)
-- Additional object detection running directly on the Pi 5 as a fallback
+**Physical setup:** Camera mounted 2–5cm from one eye so the eye fills most of the frame.
 
 ---
 
 ## Dependencies
 
-See `requirements.txt` for the full list. All dependencies are installed via `apt` through `install.sh`.
+```bash
+sudo apt install python3-picamera2
+sudo apt install python3-opencv
+sudo apt install python3-pip
+pip install dlib --break-system-packages
+```
+
+> `dlib` compiles from source on ARM64 — allow ~10 minutes.  
+> `numpy` is installed automatically with OpenCV.
+
+---
+
+## Installation
+
+```bash
+git clone https://github.com/your-username/eye_gaze.git
+cd eye_gaze
+
+wget https://raw.githubusercontent.com/opencv/opencv/master/data/haarcascades/haarcascade_eye.xml
+```
+
+---
+
+## Files
+
+```
+eye_gaze/
+    eye_gaze_detector.py    Main program — run this
+    config.py               All tunable settings
+    gaze_utils.py           Helper functions
+    haarcascade_eye.xml     OpenCV eye detector model
+```
+
+---
+
+## Usage
+
+```bash
+python3 eye_gaze_detector.py
+```
+
+Press `Q` to quit.
+
+---
+
+## How It Works
+
+Each frame goes through the following pipeline:
+
+1. Capture frame from IMX296 at 1456×1088
+2. Resize to 640×480 for faster processing
+3. Convert to grayscale — eliminates IR tint from the camera
+4. Apply CLAHE contrast enhancement — sharpens iris/sclera boundary
+5. Haar cascade scans frame for an eye bounding box
+6. Crop to the eye region (ROI)
+7. Gaussian blur to reduce eyelash/reflection noise
+8. Binary threshold — dark pixels (iris) become white, bright (sclera) black
+9. Find contours — largest dark contour = iris
+10. Image moments compute the iris centroid
+11. `iris_ratio = iris_centre_x / eye_box_width`
+    - `0.0` = iris at left edge → gaze **LEFT**
+    - `0.5` = iris centred → gaze **CENTER**
+    - `1.0` = iris at right edge → gaze **RIGHT**
+12. Smooth over last 5 frames (rolling average)
+13. Classify and print to terminal
+
+**Preview window overlays:**
+- Green rectangle — detected eye bounding box
+- Yellow line — vertical centre reference
+- Red circle — estimated iris centre
+- Coloured text — gaze direction + ratio (Blue=LEFT, Green=CENTER, Orange=RIGHT)
+- Threshold inset — b/w iris mask for tuning
+
+---
+
+## Configuration
+
+All settings are in `config.py`:
+
+| Setting | Default | Description |
+|---|---|---|
+| `CAPTURE_WIDTH / HEIGHT` | 1456, 1088 | IMX296 native resolution |
+| `PROCESS_WIDTH / HEIGHT` | 640, 480 | Resolution used for detection |
+| `FPS_LIMIT` | 30 | Max frames processed per second |
+| `GAZE_LEFT_THRESHOLD` | 0.40 | iris_ratio below this → LEFT |
+| `GAZE_RIGHT_THRESHOLD` | 0.60 | iris_ratio above this → RIGHT |
+| `SMOOTHING_FRAMES` | 5 | Frames to average before classifying |
+| `PRINT_ON_CHANGE_ONLY` | True | Only print when direction changes |
+| `MIN_EYE_SIZE` | 60 | Minimum eye detection size in pixels |
+| `IRIS_THRESHOLD` | 50 | Dark pixel cutoff for iris isolation (0–255) |
+| `MIN_IRIS_AREA` | 100 | Minimum contour area to count as iris |
+
+---
+
+## Known Issues
+
+**Iris detection unreliable** — The Haar cascade + threshold approach is sensitive to lighting changes. Corneal reflections break the iris contour and confuse the centroid calculation.
+
+**Camera not in final position** — Testing has been done hand-held. Reliability will improve once the camera is fixed in its final mount.
+
+**Uneven lighting** — A bright overhead light can interfere with detection. A dedicated IR illuminator ring is the standard solution used in professional eye trackers.
+
+---
+
+## Planned Improvements
+
+Replace the Haar cascade + threshold approach with **Hough Circle Transform** (`cv2.HoughCircles`). Since the camera is fixed, the iris always appears in roughly the same region of the frame and is always approximately the same size — which is exactly what HoughCircles is designed for. This removes the need for thresholding entirely and should be significantly more robust to lighting changes and corneal reflections.
