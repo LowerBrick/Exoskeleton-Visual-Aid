@@ -24,17 +24,16 @@ A wearable computer vision system built on the Raspberry Pi 5. It detects object
 ```
 visual-aid-exoskeleton/
 ├── README.md
-├── install.sh
-├── requirements.txt
-├── src/
-│   └── detection.py
-├── assets/
-│   └── coco_labels.txt
-├── eye_gaze/
-│   ├── eye_gaze_detector.py
-│   ├── config.py
-│   ├── gaze_utils.py
-│   └── haarcascade_eye.xml
+├── Object Detection Code/
+│   ├── detection.py
+│   ├── install.sh
+│   └── requirements.txt
+└── eyeGazeCode/
+    ├── eye_gaze_detector.py
+    ├── config.py
+    ├── gaze_utils.py
+    ├── haarcascade_eye.xml
+    └── install.sh
 ```
 
 ---
@@ -47,29 +46,21 @@ git clone https://github.com/LowerBrick/Visual-Aid-Exoskeleton.git
 cd visual-aid-exoskeleton
 ```
 
-### 2. Run the installer
+### 2. Install object detection dependencies
 ```bash
-chmod +x install.sh
-./install.sh
+chmod +x "Object Detection Code/install.sh"
+./"Object Detection Code/install.sh"
 ```
 
 This installs all required system packages. The `imx500-all` step may take a few minutes as it downloads camera firmware and model files.
 
 ### 3. Install eye gaze dependencies
 ```bash
-sudo apt install python3-picamera2
-sudo apt install python3-opencv
-sudo apt install python3-pip
-pip install dlib --break-system-packages
+chmod +x eyeGazeCode/install.sh
+./eyeGazeCode/install.sh
 ```
 
-> `dlib` compiles from source on ARM64 — allow ~10 minutes.
-
-### 4. Download the Haar cascade model
-```bash
-cd eye_gaze
-wget https://raw.githubusercontent.com/opencv/opencv/master/data/haarcascades/haarcascade_eye.xml
-```
+This installs `python3-picamera2`, `python3-opencv`, `python3-pip`, and `python3-numpy`, then verifies all imports.
 
 ---
 
@@ -77,7 +68,7 @@ wget https://raw.githubusercontent.com/opencv/opencv/master/data/haarcascades/ha
 
 ### Object Detection
 ```bash
-python3 src/detection.py
+python3 "Object Detection Code/detection.py"
 ```
 
 | Flag | Default | Description |
@@ -90,7 +81,7 @@ python3 src/detection.py
 
 ### Eye Gaze Detection
 ```bash
-python3 eye_gaze/eye_gaze_detector.py
+python3 eyeGazeCode/eye_gaze_detector.py
 ```
 
 Press `Q` to quit.
@@ -133,7 +124,7 @@ Each frame goes through the following pipeline:
 
 ## Eye Gaze Configuration
 
-All settings are in `eye_gaze/config.py`:
+All settings are in `eyeGazeCode/config.py`:
 
 | Setting | Default | Description |
 |---|---|---|
@@ -171,4 +162,4 @@ All settings are in `eye_gaze/config.py`:
 
 ## Dependencies
 
-See `requirements.txt` for the full list. System dependencies are installed via `install.sh`.
+See `Object Detection Code/requirements.txt` for object detection dependencies. Eye gaze dependencies are handled by `eyeGazeCode/install.sh`.
